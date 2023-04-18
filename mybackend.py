@@ -32,7 +32,7 @@ class PersonalData(db.Model):
     Second_name = db.Column(db.String(50), nullable=True)
     First_name = db.Column(db.String(50), nullable=True)
     Patronymic = db.Column(db.String(50), nullable=True)
-    Mobile_number = db.Column(db.String(16), nullable=True)
+    Mobile_number = db.Column(db.String(18), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id_user'), nullable=False)
 
     
@@ -96,12 +96,12 @@ def login():
     return jsonify({'access_token': access_token}), 200
 
 
-@app.route('/protected', methods=['GET'])
-@jwt_required()
-def protected():
-    current_user_id = get_jwt_identity()
-    current_user = User.query.filter_by(id_user=current_user_id).first()
-    return jsonify({'message': f'Hello, {current_user.email}!'}), 200
+# @app.route('/protected', methods=['GET'])
+# @jwt_required()
+# def protected():
+#     current_user_id = get_jwt_identity()
+#     current_user = User.query.filter_by(id_user=current_user_id).first()
+#     return jsonify({'message': f'Hello, {current_user.email}!'}), 200
 
 
 @app.route('/logout', methods=['POST'])
@@ -114,13 +114,38 @@ def logout():
 
 
 
+@app.route('/update_user', methods=['PUT'])
+@jwt_required()
+def update_user():
+    data = request.get_json()
+    email = data['email']
+    second_name = data['second_name']
+    first_name = data['first_name']
+    patronymic = data['patronymic']
+    mobile_number = data['mobile_number']
+
+    user = User.query.filter_by(email=email).first()
+
+    if not user:
+        return jsonify({'message': 'Пользователь не найден!'}), 404
+
+    personal_data = PersonalData.query.filter_by(user_id=user.id_user).first()
+    personal_data.Second_name = second_name
+    personal_data.First_name = first_name
+    personal_data.Patronymic = patronymic
+    personal_data.Mobile_number = mobile_number
+
+    db.session.commit()
+
+    return jsonify({'message': 'Данные пользователя успешно изменены!'}), 200
+
+
+
 with app.app_context():
     db.create_all()
     
 if __name__ == '__main__':
     app.run(debug=True)
-
-
 
 
 
