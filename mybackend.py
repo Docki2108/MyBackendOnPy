@@ -11,17 +11,29 @@ from flask_jwt_extended import get_jwt
 from datetime import datetime
 import base64
 from sqlalchemy import Column, Integer, String, ForeignKey, Time, CheckConstraint
-
+from flask_mail import Mail, Message
+import random
+import time
 
 # конфигурация бд
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:a0a65e9085b36e6b3f86fe9cf5401f6d03b9880f@localhost:5432/fok_kometa_backend_py'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'secret_key'
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_USERNAME'] = 'your-email@gmail.com'
+app.config['MAIL_PASSWORD'] = 'your-email-password'
+app.config['MAIL_DEFAULT_SENDER'] = 'your-email@gmail.com'
+app.config['MAIL_MAX_EMAILS'] = 5
+app.config['MAIL_SUPPRESS_SEND'] = False
+app.config['MAIL_ASCII_ATTACHMENTS'] = False
 db = SQLAlchemy(app)
 app.config['JWT_SECRET_KEY'] = 'super-secret'
 jwt = JWTManager(app)
 blacklist = set()
+mail = Mail(app)
 
 class User(db.Model):
     id_user = db.Column(db.Integer, primary_key=True)
@@ -30,13 +42,42 @@ class User(db.Model):
     role = db.Column(db.String(120), nullable=False)
     personal_data = db.relationship('PersonalData', backref='user', uselist=False)
 
+    def get(self):
+        personal_data = PersonalData.query.filter_by(user_id=self.id_user).first()
+        if personal_data is not None:
+            return {
+                'id_user': self.id_user,
+                'email': self.email,
+                'role': self.role,
+                'personal_data': {
+                    'ID_Personal_data': personal_data.ID_Personal_data,
+                    'Second_name': personal_data.Second_name,
+                    'First_name': personal_data.First_name,
+                    'Patronymic': personal_data.Patronymic,
+                    'Mobile_number': personal_data.Mobile_number
+                }
+            }
+        else:
+            return {
+                'id_user': self.id_user,
+                'email': self.email,
+                'role': self.role,
+                'personal_data': {
+                    'ID_Personal_data': None,
+                    'Second_name': None,
+                    'First_name': None,
+                    'Patronymic': None,
+                    'Mobile_number': None
+                }
+            }
+
 
 class PersonalData(db.Model):
     ID_Personal_data = db.Column(db.Integer, primary_key=True)
     Second_name = db.Column(db.String(50), nullable=True)
     First_name = db.Column(db.String(50), nullable=True)
     Patronymic = db.Column(db.String(50), nullable=True)
-    Mobile_number = db.Column(db.String(17), nullable=True, unique=True)
+    Mobile_number = db.Column(db.String(18), nullable=True, unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id_user'), nullable=False)
     
     
@@ -57,7 +98,7 @@ class Group_workout_category(db.Model):
     
 class Group_workout(db.Model):
     ID_Group_workout = db.Column(db.Integer, primary_key=True)
-    Event_date = db.Column(db.Date, nullable=False)
+    Event_date = db.Column(db.String(10), nullable=False)
     Start_time = db.Column(db.Time, nullable=False)
     End_time = db.Column(db.Time, nullable=False)
     Name = db.Column(db.String(100), nullable=False)
@@ -93,7 +134,11 @@ class News(db.Model):
     Title = db.Column(db.String(50), nullable=False, unique=True)
     Content = db.Column(db.String(500), nullable=False)
     News_category_ID = db.Column(db.Integer, db.ForeignKey('news_category.ID_News_category'), nullable=False)
-    Create_date = db.Column(db.TIMESTAMP, default=db.func.now())
+    Create_date = db.Column(db.String(20), default=datetime.utcnow().strftime('%d.%m.%Y %H:%M'))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Create_date = datetime.utcnow().strftime('%d.%m.%Y %H:%M')
     
 
 class Client(db.Model):
@@ -106,8 +151,12 @@ class Client(db.Model):
 class Feedback_message(db.Model):
     ID_Feedback_message = db.Column(db.Integer, primary_key=True)
     Message = db.Column(db.String(500), nullable=False)
-    Create_date = db.Column(db.TIMESTAMP, default=datetime.utcnow)
     Client_ID = db.Column(db.Integer, db.ForeignKey('client.ID_Client'), nullable=False)
+    Create_date = db.Column(db.String(20), default=datetime.utcnow().strftime('%d.%m.%Y %H:%M'))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Create_date = datetime.utcnow().strftime('%d.%m.%Y %H:%M')
     
 
 class DietCategory(db.Model):
@@ -259,7 +308,41 @@ def login():
 #     current_user = User.query.filter_by(id_user=current_user_id).first()
 #     return jsonify({'message': f'Hello, {current_user.email}!'}), 200
 
+def send_code_email(email, code):
+    message = Message('Код для изменения пароля', recipients=[email])
+    message.body = f'Код для изменения пароля: {code}'
+    mail.send(message)
 
+# @app.route('/change_password', methods=['POST'])
+# @jwt_required()
+# def change_password():
+#     current_user_id = get_jwt_identity()
+#     current_user = User.query.get(current_user_id)
+
+#     email = current_user.email
+#     code = str(random.randint(10000000, 99999999))
+#     send_code_email(email, code)
+
+#     for i in range(5):
+#         input_code = request.json.get('code')
+#         if input_code == code:
+#             new_password = request.json.get('new_password')
+#             confirm_password = request.json.get('confirm_password')
+
+#             if new_password != confirm_password:
+#                 return jsonify({'message': 'Пароли не совпадают'}), 400
+
+#             current_user.password = generate_password_hash(new_password)
+#             db.session.commit()
+
+#             return jsonify({'message': 'Пароль успешно изменен'}), 200
+
+#         time.sleep(60)
+#         message = Message('Кто-то хотел зайти в ваш аккаунт!', recipients=[email])
+#         message.body = 'Кто-то пытался войти в ваш аккаунт, но не смог ввести правильный код для изменения пароля.'
+#         mail.send(message)
+
+#     return jsonify({'message': 'Сброс пароля заблокирован на 5 минут'}), 400
 
 @app.route('/logout', methods=['POST'])
 @jwt_required()
@@ -269,7 +352,12 @@ def logout():
     return jsonify({'message': 'Вы успешно вышли из системы'}), 200
 
 
-
+@app.route('/user', methods=['GET'])
+@jwt_required()
+def get_user():
+    current_user = get_jwt_identity()
+    user = User.query.filter_by(id_user=current_user).first()
+    return jsonify(user.get()), 200
 
 @app.route('/update_user', methods=['PUT'])
 @jwt_required()
@@ -365,7 +453,7 @@ def delete_group_workout_category(id):
 @app.route('/group_workout', methods=['POST'])
 def add_group_workout():
     data = request.get_json()
-    event_date = datetime.strptime(data['event_date'], '%Y-%m-%d').date()
+    event_date = datetime.strptime(data['event_date'], '%d.%m.%Y').strftime('%d.%m.%Y')
     start_time = datetime.strptime(data['start_time'], '%H:%M').time()
     end_time = datetime.strptime(data['end_time'], '%H:%M').time()
     name = data['name']
@@ -396,7 +484,7 @@ def update_group_workout(id):
     
     data = request.get_json()
     if 'event_date' in data:
-        group_workout.Event_date = datetime.strptime(data['event_date'], '%Y-%m-%d').date()
+        group_workout.Event_date = datetime.strptime(data['event_date'], '%d.%m.%Y').strftime('%d.%m.%Y')
     if 'start_time' in data:
         group_workout.Start_time = datetime.strptime(data['start_time'], '%H:%M').time()
     if 'end_time' in data:
@@ -1189,6 +1277,46 @@ def get_feedback_messages():
     return jsonify(result)
 
 
+@app.route('/news', methods=['GET'])
+def get_news():
+    news = News.query.all()
+    news_list = []
+
+    for n in news:
+        news_category = News_category.query.filter_by(ID_News_category=n.News_category_ID).first()
+        news_list.append({
+            'id': n.ID_News,
+            'title': n.Title,
+            'content': n.Content,
+            'category': news_category.Name,
+            'create_date': n.Create_date
+        })
+
+    return jsonify({'news': news_list})
+
+@app.route('/group_workouts', methods=['GET'])
+def get_group_workouts():
+    group_workouts = Group_workout.query.all()
+    group_workouts_list = []
+
+    for gw in group_workouts:
+        group_workout_category = Group_workout_category.query.filter_by(ID_Group_workout_category=gw.Group_workout_category_ID).first()
+        coach = Coach.query.filter_by(ID_Coach=gw.Coach_ID).first()
+        group_workouts_list.append({
+            'id': gw.ID_Group_workout,
+            'event_date': str(gw.Event_date),
+            'start_time': gw.Start_time.strftime('%H:%M:%S'),
+            'end_time': gw.End_time.strftime('%H:%M:%S'),
+            'name': gw.Name,
+            'description': gw.Description,
+            'load_score': gw.Load_score,
+            'recommended_age': gw.Recommended_age,
+            'group_workout_category': group_workout_category.Name,
+            'coach': coach.Coachs_second_name + ' ' + coach.Coachs_first_Name + ' ' + coach.Coachs_patronymic,
+            'user_id': gw.User_id
+        })
+
+    return jsonify({'group_workouts': group_workouts_list})
 # @app.route('/feedback_messages', methods=['GET'])
 # def get_feedback_messages():
 #     feedback_messages = Feedback_message.query.all()
