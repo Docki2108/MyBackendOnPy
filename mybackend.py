@@ -357,6 +357,15 @@ def logout():
     return jsonify({'message': 'Вы успешно вышли из системы'}), 200
 
 
+@app.route('/clients', methods=['GET'])
+def get_clients():
+    clients = User.query.filter_by(role='Client').all()
+    result = []
+    for client in clients:
+        result.append(client.get())
+    return jsonify(result)
+
+
 @app.route('/user', methods=['GET'])
 @jwt_required()
 def get_user():
@@ -425,6 +434,17 @@ def delete_coach(coach_id):
     db.session.commit()
     return jsonify({'message': 'Удаление тренера прошло успешно!'})
 
+@app.route('/group_workout_categories', methods=['GET'])
+def get_group_workout_categories():
+    group_workout_categories = Group_workout_category.query.all()
+    result = []
+    for category in group_workout_categories:
+        category_data = {
+            'ID_Group_workout_category': category.ID_Group_workout_category,
+            'Name': category.Name
+        }
+        result.append(category_data)
+    return jsonify(result)
 
 @app.route('/group_workout_category', methods=['POST'])
 def add_group_workout_category():
@@ -449,6 +469,7 @@ def delete_group_workout_category(id):
     db.session.delete(category)
     db.session.commit()
     return {'message': 'Удалени категории групповой тренировки прошло успешно!'}
+
 
 
 @app.route('/group_workout', methods=['POST'])
@@ -521,6 +542,19 @@ def delete_group_workout(id):
     db.session.commit()
     
     return {'message': 'Удаление групповой тренировки прошло успешно!'}
+
+
+@app.route('/service_categories', methods=['GET'])
+def get_service_categories():
+    service_categories = Service_category.query.all()
+    result = []
+    for category in service_categories:
+        category_data = {
+            'ID_Service_category': category.ID_Service_category,
+            'Name': category.Name
+        }
+        result.append(category_data)
+    return jsonify(result)
 
 
 @app.route('/service_category', methods=['POST'])
@@ -728,7 +762,6 @@ def delete_person_workout(id):
     db.session.commit()
     return jsonify({'message': 'Person workout deleted!'})
 
-# ////////////////////////////////////?///////////////////////////////////////////////////////////////////
 @app.route('/exercise', methods=['POST'])
 def add_exercise():
     try:
