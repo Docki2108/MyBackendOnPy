@@ -25,7 +25,6 @@ import random
 import string
 from flask_mail import Message, Mail
 
-# конфигурация бд
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:a0a65e9085b36e6b3f86fe9cf5401f6d03b9880f@localhost:5432/fok_kometa_backend_py'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -36,11 +35,10 @@ db = SQLAlchemy(app)
 app.config['JWT_SECRET_KEY'] = 'super-secret'
 jwt = JWTManager(app)
 blacklist = set()
-# smsc = SMSC('dumilin', 'MX3-b2s-SBK-NTi')
 login = 'dumilin'
 password = 'MX3-b2s-SBK-NTi'
 sender = 'ФОК Комета' 
-charset = 'utf-8' # кодировка сообщения
+charset = 'utf-8'
 client = SMSC(login='dumilin', password='MX3-b2s-SBK-NTi')
 def generate_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -468,7 +466,7 @@ def delete_group_workout_category(id):
     category = Group_workout_category.query.get_or_404(id)
     db.session.delete(category)
     db.session.commit()
-    return {'message': 'Удалени категории групповой тренировки прошло успешно!'}
+    return {'message': 'Удаление категории групповой тренировки прошло успешно!'}
 
 
 
@@ -712,7 +710,7 @@ def create_feedback():
     new_feedback = Feedback_message(Message=data['message'], User_id=data['user_id'])
     db.session.add(new_feedback)
     db.session.commit()
-    return jsonify({'message': 'New feedback created successfully.'}), 201
+    return jsonify({'message': 'Добавление сообщения обратной связи прошло успешно!'}), 201
 
 @app.route('/feedback/<int:id>', methods=['PUT'])
 def update_feedback(id):
@@ -721,14 +719,14 @@ def update_feedback(id):
     feedback.Message = data['message']
     feedback.User_id = data['user_id']
     db.session.commit()
-    return jsonify({'message': 'Feedback updated successfully.'}), 200
+    return jsonify({'message': 'Изменение сообщения обратной связи прошло успешно!'}), 200
 
 @app.route('/feedback/<int:id>', methods=['DELETE'])
 def delete_feedback(id):
     feedback = Feedback_message.query.get_or_404(id)
     db.session.delete(feedback)
     db.session.commit()
-    return jsonify({'message': 'Feedback deleted successfully.'}), 200
+    return jsonify({'message': 'Удаление сообщения обратной связи прошло успешно!'}), 200
 
 
 
@@ -738,29 +736,29 @@ def add_person_workout():
     new_person_workout = Person_workout(Name=data['name'], Description=data['description'], User_id=data['user_id'])
     db.session.add(new_person_workout)
     db.session.commit()
-    return jsonify({'message': 'New person workout created!'})
+    return jsonify({'message': 'Добавление персональной тренировки прошло успешно!'})
 
 
 @app.route('/person_workout/<int:id>', methods=['PUT'])
 def update_person_workout(id):
     person_workout = Person_workout.query.get(id)
     if not person_workout:
-        return jsonify({'message': 'Person workout not found!'}), 404
+        return jsonify({'message': 'Персональная тренировка не найдена'}), 404
     data = request.get_json()
     person_workout.Name = data['name']
     person_workout.Description = data['description']
     person_workout.User_id = data['user_id']
     db.session.commit()
-    return jsonify({'message': 'Person workout updated!'})
+    return jsonify({'message': 'Изменение персональной тренировки прошло успешно!'})
 
 @app.route('/person_workout/<int:id>', methods=['DELETE'])
 def delete_person_workout(id):
     person_workout = Person_workout.query.get(id)
     if not person_workout:
-        return jsonify({'message': 'Person workout not found!'}), 404
+        return jsonify({'message': 'Персональная тренировка не найдена'}), 404
     db.session.delete(person_workout)
     db.session.commit()
-    return jsonify({'message': 'Person workout deleted!'})
+    return jsonify({'message': 'Удаление персональной тренировки прошло успешно!'})
 
 @app.route('/exercise', methods=['POST'])
 def add_exercise():
@@ -776,7 +774,7 @@ def add_exercise():
         )
         db.session.add(new_exercise)
         db.session.commit()
-        return {'message': 'Exercise added successfully!'}
+        return {'message': 'Добавление упражнения прошло успешно!'}
     except Exception as e:
         db.session.rollback()
         return {'error': str(e)}, 500
@@ -794,10 +792,10 @@ def update_exercise(id):
             exercise.Exercise_category_id = exercise_data['exercise_category_id']
             exercise.Exercise_plan_id = exercise_data['exercise_plan_id']
             db.session.commit()            
-            return {'message': 'Exercise updated successfully!'}
+            return {'message': 'Изменение упражнения прошло успешно!'}
         
         else:
-            return {'message': 'Exercise not found.'}, 404
+            return {'message': 'Упражнение не найдено'}, 404
         
     except Exception as e:
         db.session.rollback()
@@ -812,9 +810,9 @@ def delete_exercise(id):
         if exercise:
             db.session.delete(exercise)
             db.session.commit()
-            return {'message': 'Exercise deleted successfully!'}
+            return {'message': 'Удаление упражнения прошло успешно!'}
         else:
-            return {'message': 'Exercise not found.'}, 404
+            return {'message': 'Упражнение не найдено'}, 404
     except Exception as e:
         db.session.rollback()
         return {'error': str(e)}, 500
@@ -828,7 +826,7 @@ def add_exercise_category():
     new_category = Exercise_category(Name=name)
     db.session.add(new_category)
     db.session.commit()
-    return jsonify({'message': 'New exercise category added successfully!'})
+    return jsonify({'message': 'Добавление категории упражнения прошло успешно!'})
 
 @app.route('/exercise_category/<int:id>', methods=['PUT'])
 def update_exercise_category(id):
@@ -836,7 +834,7 @@ def update_exercise_category(id):
     name = request.json['name']
     category.Name = name
     db.session.commit()
-    return jsonify({'message': 'Exercise category updated successfully!'})
+    return jsonify({'message': 'Изменение категории упражнения прошло успешно!'})
 
 
 @app.route('/exercise_category/<int:id>', methods=['DELETE'])
@@ -844,7 +842,7 @@ def delete_exercise_category(id):
     category = Exercise_category.query.get_or_404(id)
     db.session.delete(category)
     db.session.commit()
-    return jsonify({'message': 'Exercise category deleted successfully!'})
+    return jsonify({'message': 'Удаление категории упражнения прошло успешно!'})
 
 
 
@@ -863,7 +861,7 @@ def add_exercise_plan():
 
     db.session.add(new_plan)
     db.session.commit()
-    return jsonify({'message': 'New exercise plan added successfully!'})
+    return jsonify({'message': 'Добавление плана тренировок прошло успешно!'})
 
 
 
@@ -885,7 +883,7 @@ def update_exercise_plan(id):
 
     db.session.commit()
 
-    return jsonify({'message': 'Exercise plan updated successfully!'})
+    return jsonify({'message': 'Изменение плана тренировок прошло успешно!'})
 
 
 
@@ -897,11 +895,7 @@ def delete_exercise_plan(id):
     db.session.delete(plan)
     db.session.commit()
 
-    return jsonify({'message': 'Exercise plan deleted successfully!'})
-
-
-
-
+    return jsonify({'message': 'Удаление плана тренировок прошло успешно!'})
 
 
 @app.route('/coaches', methods=['GET'])
@@ -1076,13 +1070,13 @@ def add_pfc():
     pfc = PFC(Proteins=proteins, Fats=fats, Carbohydrates=carbohydrates)
     db.session.add(pfc)
     db.session.commit()
-    return jsonify({'message': 'PFC добавлен успешно!'})
+    return jsonify({'message': 'Добавление БЖУ прошло успешно!'})
 
 @app.route('/pfc/<int:id>', methods=['PUT'])
 def update_pfc(id):
     pfc = PFC.query.get(id)
     if not pfc:
-        return jsonify({'message': 'PFC не найден'})
+        return jsonify({'message': 'БЖУ не найден'})
     data = request.get_json()
     proteins = data['proteins']
     fats = data['fats']
@@ -1091,16 +1085,16 @@ def update_pfc(id):
     pfc.Fats = fats
     pfc.Carbohydrates = carbohydrates
     db.session.commit()
-    return jsonify({'message': 'PFC изменен успешно!'})
+    return jsonify({'message': 'Изменение БЖУ прошло успешно!'})
 
 @app.route('/pfc/<int:id>', methods=['DELETE'])
 def delete_pfc(id):
     pfc = PFC.query.get(id)
     if not pfc:
-        return jsonify({'message': 'PFC не найден'})
+        return jsonify({'message': 'БЖЦ не найден'})
     db.session.delete(pfc)
     db.session.commit()
-    return jsonify({'message': 'PFC удален успешно!'})
+    return jsonify({'message': 'Удаление БЖУ прошло успешно!'})
 
 @app.route('/pfc', methods=['GET'])
 def get_pfc():
@@ -1276,10 +1270,6 @@ def get_exercise():
         exercise_dict['Person_workout_Description'] = person_workout.Description
         result.append(exercise_dict)
     return jsonify(result)
-
-
-
-
 
 
 with app.app_context():
