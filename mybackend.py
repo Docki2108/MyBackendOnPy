@@ -1,7 +1,7 @@
 import smtplib
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, func
 from email.message import EmailMessage
 from smsc.api import SMSC
 from smsc.messages import SMSMessage
@@ -15,15 +15,18 @@ from flask import session
 from smsc import SMSC
 from flask_jwt_extended import get_jwt
 from datetime import datetime
-import base64
 from sqlalchemy import Column, Integer, String, ForeignKey, Time, CheckConstraint
 from flask_mail import Mail, Message
 import random
-import time
 from sqlalchemy.orm import joinedload
-import random
 import string
 from flask_mail import Message, Mail
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.orm import relationship
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:a0a65e9085b36e6b3f86fe9cf5401f6d03b9880f@localhost:5432/fok_kometa_backend_py'
@@ -152,6 +155,8 @@ class Coach(db.Model):
     Work_experience = db.Column(db.Integer, nullable=False)
     
     
+
+
     
 class Group_workout_category(db.Model):
     ID_Group_workout_category = db.Column(db.Integer, primary_key=True)
@@ -214,7 +219,9 @@ class Feedback_message(db.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.Create_date = datetime.utcnow().strftime('%d.%m.%Y %H:%M')
-    
+
+
+
 
 class Diet_category(db.Model):
     ID_Diet_category = db.Column(db.Integer, primary_key=True)
@@ -230,7 +237,7 @@ class Diet(db.Model):
 
 class Dish_category(db.Model):
     ID_Dish_category = db.Column(db.Integer, primary_key=True)
-    Name = db.Column(db.String(30), nullable=False)
+    Name = db.Column(db.String(100), nullable=False)
     
 class Dish(db.Model):
     ID_Dish = db.Column(db.Integer, primary_key=True)
@@ -250,7 +257,7 @@ class PFC(db.Model):
     
 
 class Person_workout(db.Model):
-    ID_Person_workout = db.Column(Integer, primary_key=True)
+    ID_Person_workout = db.Column(Integer, primary_key=True)    
     Name = db.Column(db.String(100), nullable=False, unique=True)
     Description = db.Column(db.String(300), nullable=False)
     User_id = db.Column(db.Integer, db.ForeignKey('user.id_user'), nullable=False)
@@ -264,7 +271,6 @@ class Exercise(db.Model):
     Exercise_plan_id = Column(Integer, ForeignKey('exercise_plan.ID_Exercise_plan'), nullable=False)
     Person_workout_id = Column(Integer, ForeignKey('person_workout.ID_Person_workout'), nullable=False)
     
-    
 
 class Exercise_category(db.Model):
     ID_Exercise_category = Column(Integer, primary_key=True)
@@ -277,6 +283,367 @@ class Exercise_plan(db.Model):
     Number_of_repetitions = Column(Integer, nullable=False)
     Number_of_approaches = Column(Integer, nullable=False)
     Rest_time = Column(Time, nullable=False)
+    
+    
+    
+class Exercise_equipment_category(db.Model):
+    ID_Exercise_equipment_category = db.Column(db.Integer, primary_key=True)
+    Name = db.Column(db.String(100), nullable=False, unique=True)
+    
+class Exercise_equipment(db.Model):
+    ID_Exercise_equipment = db.Column(db.Integer, primary_key=True)
+    Name = db.Column(db.String(100), nullable=False)
+    Description = db.Column(db.String(300), nullable=False)
+    Exercise_equipment_category_ID = db.Column(db.Integer, db.ForeignKey('exercise_equipment_category.ID_Exercise_equipment_category'), nullable=False)
+
+class Block_category(db.Model):
+    ID_Block_category = Column(Integer, primary_key=True)
+    Name = Column(String(100), nullable=False)
+    
+class Block(db.Model):
+    ID_Block = Column(Integer,ForeignKey('user.id_user'), primary_key=True)
+    Description = Column(String(300), nullable=False)
+    Create_date = db.Column(db.String(20), default=datetime.utcnow().strftime('%d.%m.%Y %H:%M'))
+    Block_category_ID = Column(Integer, ForeignKey('block_category.ID_Block_category'), nullable=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Create_date = datetime.utcnow().strftime('%d.%m.%Y %H:%M')   
+
+class Violation(db.Model):
+    ID_Violation = Column(Integer, primary_key=True)
+    Name = Column(String(100), nullable=False)
+    Description = Column(String(300), nullable=False)
+    Degree = Column(Integer, nullable=False)
+    Create_date = db.Column(db.String(20), default=datetime.utcnow().strftime('%d.%m.%Y %H:%M'))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.Create_date = datetime.utcnow().strftime('%d.%m.%Y %H:%M')
+    
+    User_ID = db.Column(db.Integer, db.ForeignKey('user.id_user'), nullable=False)
+
+
+
+@app.route('/feedback_messages', methods=['GET'])
+def get_feedback_messages():
+    feedback_messages = Feedback_message.query.all()
+    results = []
+    for feedback in feedback_messages:
+        user = User.query.get(feedback.User_id)
+        personal_data = user.personal_data
+        feedback_data = {
+            'ID_Feedback_message': feedback.ID_Feedback_message,
+            'Message': feedback.Message,
+            'User': {
+                'ID_User': user.id_user,
+                'Email': user.email,
+                'Role': user.role,
+                'PersonalData': {
+                    'ID_Personal_data': personal_data.ID_Personal_data if personal_data else None,
+                    'Second_name': personal_data.Second_name if personal_data else None,
+                    'First_name': personal_data.First_name if personal_data else None,
+                    'Patronymic': personal_data.Patronymic if personal_data else None,
+                    'Mobile_number': personal_data.Mobile_number if personal_data else None
+                }
+            }
+        }
+        results.append(feedback_data)
+    return jsonify(results)
+
+
+# @event.listens_for(Violation, 'after_insert')
+# @event.listens_for(Violation, 'after_update')
+# def auto_block_func(mapper, connection, target):
+#     count_block_point = session.query(func.sum(Violation.degree)).filter(Violation.user_id == target.user_id).scalar()
+#     if count_block_point is not None and count_block_point > 15:
+#         block = Block(id_block=target.user_id, description='Автоматическая блокировка', create_date=datetime.now(), block_category_id=0)
+#         session.add(block)
+#         session.commit()
+
+@app.route('/violation/<int:violation_id>', methods=['GET'])
+def get_violation(violation_id):
+    violation = Violation.query.get(violation_id)
+    if violation:
+        return jsonify({
+            'ID_Violation': violation.ID_Violation,
+            'Name': violation.Name,
+            'Description': violation.Description,
+            'Rank': violation.Rank,
+            'User_ID': violation.User_ID
+        })
+    else:
+        return jsonify({'message': 'Violation not found'}), 404
+    
+    
+@app.route('/violation', methods=['POST'])
+def create_violation():
+    data = request.get_json()
+    name = data.get('Name')
+    description = data.get('Description')
+    rank = data.get('Rank')
+    user_id = data.get('User_ID')
+
+    violation = Violation(Name=name, Description=description, Rank=rank, User_ID=user_id)
+    db.session.add(violation)
+    db.session.commit()
+
+    return jsonify({'message': 'Violation created successfully'}), 201
+
+@app.route('/violation/<int:violation_id>', methods=['PUT'])
+def update_violation(violation_id):
+    violation = Violation.query.get(violation_id)
+    if not violation:
+        return jsonify({'message': 'Violation not found'}), 404
+
+    data = request.get_json()
+    name = data.get('Name')
+    description = data.get('Description')
+    rank = data.get('Rank')
+    user_id = data.get('User_ID')
+
+    violation.Name = name
+    violation.Description = description
+    violation.Rank = rank
+    violation.User_ID = user_id
+    db.session.commit()
+
+    return jsonify({'message': 'Violation updated successfully'})
+
+@app.route('/violation/<int:violation_id>', methods=['DELETE'])
+def delete_violation(violation_id):
+    violation = Violation.query.get(violation_id)
+    if not violation:
+        return jsonify({'message': 'Violation not found'}), 404
+
+    db.session.delete(violation)
+    db.session.commit()
+
+    return jsonify({'message': 'Violation deleted successfully'})
+
+@app.route('/block_category/<int:block_category_id>', methods=['GET'])
+def get_block_category(block_category_id):
+    block_category = Block_category.query.get(block_category_id)
+    if block_category:
+        return jsonify({
+            'ID_Block_category': block_category.ID_Block_category,
+            'Name': block_category.Name
+        })
+    else:
+        return jsonify({'message': 'Block category not found'}), 404
+
+
+@app.route('/block_category', methods=['POST'])
+def create_block_category():
+    data = request.get_json()
+    name = data.get('Name')
+
+    block_category = Block_category(Name=name)
+    db.session.add(block_category)
+    db.session.commit()
+
+    return jsonify({'message': 'Block category created successfully'}), 201
+
+@app.route('/block_category/<int:block_category_id>', methods=['PUT'])
+def update_block_category(block_category_id):
+    block_category = Block_category.query.get(block_category_id)
+    if not block_category:
+        return jsonify({'message': 'Block category not found'}), 404
+
+    data = request.get_json()
+    name = data.get('Name')
+
+    block_category.Name = name
+    db.session.commit()
+
+    return jsonify({'message': 'Block category updated successfully'})
+
+
+@app.route('/block_category/<int:block_category_id>', methods=['DELETE'])
+def delete_block_category(block_category_id):
+    block_category = Block_category.query.get(block_category_id)
+    if not block_category:
+        return jsonify({'message': 'Block category not found'}), 404
+
+    db.session.delete(block_category)
+    db.session.commit()
+
+    return jsonify({'message': 'Block category deleted successfully'})
+
+
+
+
+@app.route('/block/<int:block_id>', methods=['GET'])
+def get_block(block_id):
+    block = Block.query.get(block_id)
+    if block:
+        return jsonify({
+            'ID_Block': block.ID_Block,
+            'Name': block.Name,
+            'Description': block.Description,
+            'Block_category_ID': block.Block_category_ID
+        })
+    else:
+        return jsonify({'message': 'Block not found'}), 404
+
+        
+        
+        
+@app.route('/block', methods=['POST'])
+def create_block():
+    data = request.get_json()
+    name = data.get('Name')
+    description = data.get('Description')
+    block_category_id = data.get('Block_category_ID')
+
+    block = Block(Name=name, Description=description, Block_category_ID=block_category_id)
+    db.session.add(block)
+    db.session.commit()
+
+    return jsonify({'message': 'Block created successfully'}), 201
+
+
+@app.route('/block/<int:block_id>', methods=['PUT'])
+def update_block(block_id):
+    block = Block.query.get(block_id)
+    if not block:
+        return jsonify({'message': 'Block not found'}), 404
+
+    data = request.get_json()
+    name = data.get('Name')
+    description = data.get('Description')
+    block_category_id = data.get('Block_category_ID')
+
+    block.Name = name
+    block.Description = description
+    block.Block_category_ID = block_category_id
+    db.session.commit()
+
+    return jsonify({'message': 'Block updated successfully'})
+
+@app.route('/block/<int:block_id>', methods=['DELETE'])
+def delete_block(block_id):
+    block = Block.query.get(block_id)
+    if not block:
+        return jsonify({'message': 'Block not found'}), 404
+
+    db.session.delete(block)
+    db.session.commit()
+
+    return jsonify({'message': 'Block deleted successfully'})
+
+
+@app.route('/exercise_equipment_category', methods=['POST'])
+def create_exercise_equipment_category():
+    name = request.json['Name']
+    
+    new_category = Exercise_equipment_category(Name=name)
+    db.session.add(new_category)
+    db.session.commit()
+    
+    return 'Exercise equipment category created successfully', 201
+
+@app.route('/exercise_equipment_category', methods=['GET'])
+def get_all_exercise_equipment_categories():
+    categories = Exercise_equipment_category.query.all()
+    
+    result = []
+    for category in categories:
+        result.append({
+            'ID_Exercise_equipment_category': category.ID_Exercise_equipment_category,
+            'Name': category.Name
+        })
+    
+    return jsonify(result), 200
+
+@app.route('/exercise_equipment_category/<int:category_id>', methods=['PUT'])
+def update_exercise_equipment_category(category_id):
+    category = Exercise_equipment_category.query.get(category_id)
+    
+    if category is None:
+        return 'Exercise equipment category not found', 404
+    
+    name = request.json['Name']
+    
+    category.Name = name
+    db.session.commit()
+    
+    return 'Exercise equipment category updated successfully', 200
+
+
+@app.route('/exercise_equipment_category/<int:category_id>', methods=['DELETE'])
+def delete_exercise_equipment_category(category_id):
+    category = Exercise_equipment_category.query.get(category_id)
+    
+    if category is None:
+        return 'Exercise equipment category not found', 404
+    
+    db.session.delete(category)
+    db.session.commit()
+    
+    return 'Exercise equipment category deleted successfully', 200
+
+
+
+@app.route('/exercise_equipment', methods=['POST'])
+def create_exercise_equipment():
+    name = request.json['Name']
+    description = request.json['Description']
+    category_id = request.json['Exercise_equipment_category_ID']
+    
+    new_equipment = Exercise_equipment(Name=name, Description=description, Exercise_equipment_category_ID=category_id)
+    db.session.add(new_equipment)
+    db.session.commit()
+    
+    return 'Exercise equipment created successfully', 201
+
+@app.route('/exercise_equipment', methods=['GET'])
+def get_all_exercise_equipment():
+    equipment = Exercise_equipment.query.all()
+    
+    result = []
+    for item in equipment:
+        result.append({
+            'ID_Exercise_equipment': item.ID_Exercise_equipment,
+            'Name': item.Name,
+            'Description': item.Description,
+            'Exercise_equipment_category_ID': item.Exercise_equipment_category_ID
+        })
+    
+    return jsonify(result), 200
+
+
+@app.route('/exercise_equipment/<int:equipment_id>', methods=['PUT'])
+def update_exercise_equipment(equipment_id):
+    equipment = Exercise_equipment.query.get(equipment_id)
+    
+    if equipment is None:
+        return 'Exercise equipment not found', 404
+    
+    name = request.json['Name']
+    description = request.json['Description']
+    category_id = request.json['Exercise_equipment_category_ID']
+    
+    equipment.Name = name
+    equipment.Description = description
+    equipment.Exercise_equipment_category_ID = category_id
+    
+    db.session.commit()
+    
+    return 'Exercise equipment updated successfully', 200
+
+
+@app.route('/exercise_equipment/<int:equipment_id>', methods=['DELETE'])
+def delete_exercise_equipment(equipment_id):
+    equipment = Exercise_equipment.query.get(equipment_id)
+    
+    if equipment is None:
+        return 'Exercise equipment not found', 404
+    
+    db.session.delete(equipment)
+    db.session.commit()
+    
+    return 'Exercise equipment deleted successfully', 200
 
 
 @app.route('/register', methods=['POST'])
@@ -468,6 +835,16 @@ def delete_group_workout_category(id):
     db.session.commit()
     return {'message': 'Удаление категории групповой тренировки прошло успешно!'}
 
+@app.route('/diet_categories', methods=['GET'])
+def get_diet_categories():
+    diet_categories = Diet_category.query.all()
+    output = []
+    for diet_category in diet_categories:
+        category_data = {}
+        category_data['id'] = diet_category.ID_Diet_category
+        category_data['name'] = diet_category.Name
+        output.append(category_data)
+    return jsonify({'diet_categories': output})
 
 
 @app.route('/group_workout', methods=['POST'])
@@ -760,6 +1137,21 @@ def delete_person_workout(id):
     db.session.commit()
     return jsonify({'message': 'Удаление персональной тренировки прошло успешно!'})
 
+
+@app.route('/person_workouts', methods=['GET'])
+def get_person_workouts():
+    person_workouts = Person_workout.query.all()
+    result = []
+    for workout in person_workouts:
+        workout_data = {
+            'ID_Person_workout': workout.ID_Person_workout,
+            'Name': workout.Name,
+            'Description': workout.Description,
+            'User_id': workout.User_id
+        }
+        result.append(workout_data)
+    return jsonify(result)
+
 @app.route('/exercise', methods=['POST'])
 def add_exercise():
     try:
@@ -845,6 +1237,18 @@ def delete_exercise_category(id):
     return jsonify({'message': 'Удаление категории упражнения прошло успешно!'})
 
 
+@app.route('/exercise_categories', methods=['GET'])
+def get_exercise_categories():
+    exercise_categories = Exercise_category.query.all()
+    result = []
+    for category in exercise_categories:
+        category_data = {
+            'ID_Exercise_category': category.ID_Exercise_category,
+            'Name': category.Name
+        }
+        result.append(category_data)
+    return jsonify(result)
+
 
 
 @app.route('/exercise_plan', methods=['POST'])
@@ -898,6 +1302,22 @@ def delete_exercise_plan(id):
     return jsonify({'message': 'Удаление плана тренировок прошло успешно!'})
 
 
+@app.route('/exercise_plans', methods=['GET'])
+def get_exercise_plans():
+    exercise_plans = Exercise_plan.query.all()
+    result = []
+    for plan in exercise_plans:
+        plan_data = {
+            'ID_Exercise_plan': plan.ID_Exercise_plan,
+            'Name': plan.Name,
+            'Description': plan.Description,
+            'Number_of_repetitions': plan.Number_of_repetitions,
+            'Number_of_approaches': plan.Number_of_approaches,
+            'Rest_time': str(plan.Rest_time)
+        }
+        result.append(plan_data)
+    return jsonify(result)
+
 @app.route('/coaches', methods=['GET'])
 def get_all_coaches():
     coaches = Coach.query.all()
@@ -929,6 +1349,34 @@ def get_all_services():
         }
         result.append(service_data)
     return jsonify({'services': result})
+
+# @app.route('/group_workout_categories', methods=['GET'])
+# def get_group_workout_categories():
+#     group_workout_categories = Group_workout_category.query.all()
+#     result = []
+#     for category in group_workout_categories:
+#         category_data = {
+#             'ID_Group_workout_category': category.ID_Group_workout_category,
+#             'Name': category.Name
+#         }
+#         result.append(category_data)
+#     return jsonify(result)
+
+@app.route('/coaches2', methods=['GET'])
+def get_all_coaches2():
+    coaches = Coach.query.all()
+    result = []
+    for coach in coaches:
+        coach_data = {
+            'id': coach.ID_Coach,
+            'second_name': coach.Coachs_second_name,
+            'first_name': coach.Coachs_first_Name,
+            'patronymic': coach.Coachs_patronymic,
+            'specialization': coach.Specialization,
+            'work_experience': str(coach.Work_experience)
+        }
+        result.append(coach_data)
+    return jsonify({'coach': result})
 
 
 @app.route('/news', methods=['GET'])
@@ -1003,16 +1451,16 @@ def delete_diet_category(id):
     db.session.commit()
     return jsonify({'message': 'Категория диет удалена успешно!'})
 
-@app.route('/diet_categories', methods=['GET'])
-def get_diet_categories():
-    categories = Diet_category.query.all()
-    result = []
-    for category in categories:
-        category_data = {}
-    category_data['id'] = category.ID_Diet_category
-    category_data['name'] = category.Name
-    result.append(category_data)
-    return jsonify(result)
+# @app.route('/diet_categories', methods=['GET'])
+# def get_diet_categories():
+#     categories = Diet_category.query.all()
+#     result = []
+#     for category in categories:
+#         category_data = {}
+#     category_data['id'] = category.ID_Diet_category
+#     category_data['name'] = category.Name
+#     result.append(category_data)
+#     return jsonify(result)
 
 
 
@@ -1054,10 +1502,12 @@ def get_dish_categories():
     result = []
     for category in categories:
         category_data = {}
-    category_data['id'] = category.ID_Dish_category
-    category_data['name'] = category.Name
-    result.append(category_data)
+        category_data['id'] = category.ID_Dish_category
+        category_data['name'] = category.Name
+        result.append(category_data)
     return jsonify(result)
+
+
 
 
 
@@ -1102,11 +1552,11 @@ def get_pfc():
     result = []
     for item in pfc:
         item_data = {}
-    item_data['id'] = item.ID_PFC
-    item_data['proteins'] = item.Proteins
-    item_data['fats'] = item.Fats
-    item_data['carbohydrates'] = item.Carbohydrates
-    result.append(item_data)
+        item_data['id'] = item.ID_PFC
+        item_data['proteins'] = item.Proteins
+        item_data['fats'] = item.Fats
+        item_data['carbohydrates'] = item.Carbohydrates
+        result.append(item_data)
     return jsonify(result)
 
 
@@ -1152,11 +1602,11 @@ def get_diet():
     result = []
     for item in diet:
         item_data = {}
-    item_data['id'] = item.ID_Diet
-    item_data['name'] = item.Name
-    item_data['duration'] = item.Duration
-    item_data['diet_category_id'] = item.Diet_category_ID
-    result.append(item_data)
+        item_data['id'] = item.ID_Diet
+        item_data['name'] = item.Name
+        item_data['duration'] = item.Duration
+        item_data['diet_category_id'] = item.Diet_category_ID
+        result.append(item_data)
     return jsonify(result)
 
 
@@ -1210,13 +1660,13 @@ def get_dish():
     result = []
     for item in dish:
         item_data = {}
-    item_data['id'] = item.ID_Dish
-    item_data['name'] = item.Name
-    item_data['kcal'] = item.KCal
-    item_data['pfc_id'] = item.PFC_ID
-    item_data['diet_id'] = item.Diet_ID
-    item_data['dish_category_id'] = item.Dish_category_ID
-    result.append(item_data)
+        item_data['id'] = item.ID_Dish
+        item_data['name'] = item.Name
+        item_data['kcal'] = item.KCal
+        item_data['pfc_id'] = item.PFC_ID
+        item_data['diet_id'] = item.Diet_ID
+        item_data['dish_category_id'] = item.Dish_category_ID
+        result.append(item_data)
     return jsonify(result)
 
 
@@ -1246,6 +1696,7 @@ def get_dishes():
             'category': dish_category.Name
         })
     return jsonify(result)
+
 
 @app.route('/exercise', methods=['GET'])
 def get_exercise():
