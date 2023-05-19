@@ -352,15 +352,6 @@ def get_feedback_messages():
     return jsonify(results)
 
 
-# @event.listens_for(Violation, 'after_insert')
-# @event.listens_for(Violation, 'after_update')
-# def auto_block_func(mapper, connection, target):
-#     count_block_point = session.query(func.sum(Violation.degree)).filter(Violation.user_id == target.user_id).scalar()
-#     if count_block_point is not None and count_block_point > 15:
-#         block = Block(id_block=target.user_id, description='Автоматическая блокировка', create_date=datetime.now(), block_category_id=0)
-#         session.add(block)
-#         session.commit()
-
 @app.route('/violation/<int:violation_id>', methods=['GET'])
 def get_violation(violation_id):
     violation = Violation.query.get(violation_id)
@@ -1350,17 +1341,6 @@ def get_all_services():
         result.append(service_data)
     return jsonify({'services': result})
 
-# @app.route('/group_workout_categories', methods=['GET'])
-# def get_group_workout_categories():
-#     group_workout_categories = Group_workout_category.query.all()
-#     result = []
-#     for category in group_workout_categories:
-#         category_data = {
-#             'ID_Group_workout_category': category.ID_Group_workout_category,
-#             'Name': category.Name
-#         }
-#         result.append(category_data)
-#     return jsonify(result)
 
 @app.route('/coaches2', methods=['GET'])
 def get_all_coaches2():
@@ -1450,21 +1430,6 @@ def delete_diet_category(id):
     db.session.delete(category)
     db.session.commit()
     return jsonify({'message': 'Категория диет удалена успешно!'})
-
-# @app.route('/diet_categories', methods=['GET'])
-# def get_diet_categories():
-#     categories = Diet_category.query.all()
-#     result = []
-#     for category in categories:
-#         category_data = {}
-#     category_data['id'] = category.ID_Diet_category
-#     category_data['name'] = category.Name
-#     result.append(category_data)
-#     return jsonify(result)
-
-
-
-
 
 
 @app.route('/dish_categories', methods=['POST'])
