@@ -63,7 +63,7 @@ def forgot_password():
     phone_number = personal_data.Mobile_number.replace('(', '').replace(')', '').replace('-', '').replace(' ', '')[1:]
     code = generate_code()
     user.password_reset_code = code
-    session['reset_password_code'] = code
+    session['reset_password_code'] = code   
     db.session.commit()
     response = client.send(to = phone_number, message=SMSMessage(text=f'Уважаемый пользователь, код: {code}'))
     if jsonify:
@@ -154,9 +154,6 @@ class Coach(db.Model):
     Specialization = db.Column(db.String(300), nullable=False)
     Work_experience = db.Column(db.Integer, nullable=False)
     
-    
-
-
     
 class Group_workout_category(db.Model):
     ID_Group_workout_category = db.Column(db.Integer, primary_key=True)
